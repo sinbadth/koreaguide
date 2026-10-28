@@ -1,0 +1,663 @@
+HTML_CONTENT = """
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>수업용 학생 뽑기 룰렛</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <!-- Tone.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
+    
+    * {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .pointer-shadow {
+      filter: drop-shadow(0px 6px 6px rgba(0, 0, 0, 0.35));
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% {
+        box-shadow: 0 0 25px rgba(99, 102, 241, 0.6), 0 10px 20px -5px rgba(79, 70, 229, 0.4);
+      }
+      50% {
+        box-shadow: 0 0 35px rgba(129, 140, 248, 0.8), 0 14px 28px -5px rgba(79, 70, 229, 0.6);
+      }
+    }
+
+    .spin-btn-active {
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(241, 245, 249, 0.8);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+  <header class="w-full bg-slate-800/80 backdrop-blur-md border-b border-slate-700/60 px-6 py-4 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+          <i class="ph-bold ph-chalkboard-simple text-2xl text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            발표자 뽑기 룰렛
+            <span class="text-xs bg-indigo-500/20 text-indigo-300 font-semibold px-2 py-0.5 rounded-full border border-indigo-500/30">교실용</span>
+          </h1>
+          <p class="text-xs text-slate-400">공정하고 신나는 무작위 학생 지목기</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="soundToggleBtn" onclick="toggleSound()" class="p-2.5 rounded-xl bg-slate-700/70 hover:bg-slate-700 text-slate-200 border border-slate-600 transition flex items-center gap-2 text-sm font-medium shadow-sm" title="효과음 켜기/끄기">
+          <i id="soundIcon" class="ph-bold ph-speaker-high text-lg text-emerald-400"></i>
+          <span class="hidden sm:inline" id="soundText">소리 켬</span>
+        </button>
+        <button onclick="toggleSidePanel()" class="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition flex items-center gap-2 text-sm shadow-md shadow-indigo-600/30">
+          <i class="ph-bold ph-users-three text-lg"></i>
+          <span>학생 명단 관리</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row items-center justify-center gap-8 relative">
+    <div class="flex-1 flex flex-col items-center justify-center w-full max-w-2xl">
+      <div class="relative w-[340px] h-[340px] xs:w-[380px] xs:h-[380px] sm:w-[480px] sm:h-[480px] md:w-[520px] md:h-[520px] flex items-center justify-center my-2">
+        <div class="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/20 via-pink-500/20 to-amber-500/20 blur-xl"></div>
+        <div class="absolute inset-0 rounded-full border-8 border-slate-800 shadow-[0_0_50px_rgba(0,0,0,0.8),inset_0_0_20px_rgba(0,0,0,0.7)] pointer-events-none z-10"></div>
+        
+        <div class="absolute -top-3 z-30 flex flex-col items-center pointer-events-none pointer-shadow">
+          <div class="w-8 h-10 flex items-center justify-center">
+            <svg viewBox="0 0 40 50" class="w-10 h-12 filter drop-shadow-md">
+              <polygon points="5,5 35,5 20,45" fill="#EF4444" stroke="#FFFFFF" stroke-width="3" stroke-linejoin="round" />
+              <circle cx="20" cy="14" r="5" fill="#FEE2E2" />
+            </svg>
+          </div>
+        </div>
+
+        <canvas id="rouletteCanvas" class="w-full h-full rounded-full z-0 cursor-pointer shadow-2xl transition-transform" onclick="spin()"></canvas>
+
+        <div class="absolute z-20 w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-b from-slate-700 via-slate-800 to-slate-950 border-4 border-slate-300 shadow-2xl flex items-center justify-center cursor-pointer transform hover:scale-105 active:scale-95 transition" onclick="spin()">
+          <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-rose-500 shadow-inner flex items-center justify-center text-white">
+            <i class="ph-bold ph-sparkle text-lg"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-8 flex flex-col items-center gap-4 w-full">
+        <button id="spinBtn" onclick="spin()" class="spin-btn-active group relative px-10 py-5 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-extrabold text-2xl tracking-wide shadow-xl hover:opacity-95 active:scale-95 transition duration-150 flex items-center gap-3">
+          <i class="ph-bold ph-play text-2xl group-hover:scale-110 transition-transform"></i>
+          <span>돌리기!</span>
+        </button>
+
+        <div class="flex items-center gap-3 bg-slate-800/80 px-4 py-2.5 rounded-xl border border-slate-700/60 text-sm">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="autoRemoveToggle" class="w-4 h-4 text-indigo-600 bg-slate-900 border-slate-600 rounded focus:ring-indigo-500 focus:ring-offset-slate-900">
+            <span class="text-slate-300 font-medium">당첨된 학생 다음 턴 제외</span>
+          </label>
+          <span class="text-slate-600">|</span>
+          <span id="studentCountBadge" class="text-xs text-indigo-300 font-semibold bg-indigo-950/80 px-2 py-0.5 rounded-md border border-indigo-800">
+            총 20명
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div id="sideDrawer" class="fixed inset-y-0 right-0 z-50 w-full sm:w-96 bg-slate-800 border-l border-slate-700 p-6 flex flex-col shadow-2xl transform translate-x-full lg:translate-x-0 lg:static lg:w-96 lg:h-[620px] lg:rounded-3xl lg:border transition-transform duration-300 ease-in-out">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-700">
+        <h2 class="font-bold text-lg text-white flex items-center gap-2">
+          <i class="ph-bold ph-sliders-horizontal text-indigo-400"></i>
+          학생 명단 관리
+        </h2>
+        <button onclick="toggleSidePanel()" class="lg:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700">
+          <i class="ph-bold ph-x text-xl"></i>
+        </button>
+      </div>
+
+      <div class="py-3 flex flex-wrap gap-2 text-xs">
+        <button onclick="applyPreset('class20')" class="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium transition">
+          기본 20명
+        </button>
+        <button onclick="applyPreset('numbers25')" class="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium transition">
+          1~25번
+        </button>
+        <button onclick="shuffleStudents()" class="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium transition flex items-center gap-1">
+          <i class="ph-bold ph-shuffle"></i> 순서 섞기
+        </button>
+      </div>
+
+      <div class="flex-1 flex flex-col min-h-0">
+        <label for="studentListText" class="text-xs text-slate-400 mb-1.5 flex justify-between">
+          <span>줄바꿈 또는 쉼표(,)로 구분</span>
+          <span id="currentNameCount" class="text-indigo-400 font-semibold">20명</span>
+        </label>
+        <textarea id="studentListText" class="w-full flex-1 p-3.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" placeholder="학생 이름을 줄바꿈으로 입력하세요..."></textarea>
+      </div>
+
+      <div class="pt-3">
+        <button onclick="applyTextList()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 active:scale-98 text-white font-semibold rounded-xl transition shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2">
+          <i class="ph-bold ph-check"></i>
+          룰렛에 적용하기
+        </button>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-700 flex flex-col max-h-36 overflow-hidden">
+        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+          <span class="font-bold flex items-center gap-1">
+            <i class="ph-bold ph-clock-counter-clockwise"></i> 최근 당첨자
+          </span>
+          <button onclick="clearHistory()" class="text-slate-500 hover:text-rose-400 transition underline">기록 비우기</button>
+        </div>
+        <div id="historyList" class="flex flex-wrap gap-1.5 overflow-y-auto pr-1">
+          <span class="text-xs text-slate-500 italic py-1">아직 뽑힌 학생이 없습니다.</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="resultModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300">
+    <div id="resultCard" class="bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-indigo-500/50 rounded-3xl max-w-sm w-full p-8 text-center shadow-2xl transform scale-90 transition-transform duration-300">
+      
+      <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-tr from-amber-400 to-pink-500 flex items-center justify-center shadow-lg shadow-pink-500/30 text-white animate-bounce">
+        <i class="ph-bold ph-crown text-4xl"></i>
+      </div>
+
+      <p class="text-indigo-400 text-sm font-bold tracking-widest uppercase mb-1">🎉 당첨을 축하합니다!</p>
+      <h3 id="winnerName" class="text-4xl font-extrabold text-white my-3 tracking-tight">홍길동</h3>
+      <p id="winnerSubText" class="text-slate-400 text-sm mb-6">이번 발표자는 바로 너야!</p>
+
+      <div class="flex flex-col gap-2">
+        <button onclick="closeModal(false)" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-500 to-pink-500 text-white font-bold text-base hover:opacity-95 active:scale-95 transition shadow-lg shadow-indigo-500/30">
+          확인
+        </button>
+        <button id="removeWinnerBtn" onclick="closeModal(true)" class="w-full py-2.5 px-4 rounded-xl bg-slate-700/60 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/50 text-slate-300 text-xs font-semibold border border-slate-600 transition">
+          이 학생 명단에서 제외하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="w-full py-3 text-center text-xs text-slate-500 border-t border-slate-800">
+    선생님과 학생을 위한 스마트 발표자 추첨 원판 룰렛 &bull; 공정한 랜덤 선택
+  </footer>
+
+  <script>
+    const defaultStudents = [
+      "김민준", "이서준", "박예준", "최도윤", "정시우",
+      "강주원", "조하준", "윤지호", "장지후", "임준우",
+      "서서아", "한이서", "오아윤", "배지아", "송하윤",
+      "류서윤", "홍시은", "신은우", "권수아", "황유나"
+    ];
+
+    let students = [...defaultStudents];
+    let isSpinning = false;
+    let currentRotation = 0; 
+    let soundEnabled = true;
+    let lastWinner = null;
+    let history = [];
+
+    const sliceColors = [
+      '#6366F1', '#EC4899', '#14B8A6', '#F59E0B', 
+      '#8B5CF6', '#EF4444', '#10B981', '#3B82F6', 
+      '#F97316', '#06B6D4', '#A855F7', '#84CC16'
+    ];
+
+    const canvas = document.getElementById('rouletteCanvas');
+    const ctx = canvas.getContext('2d');
+    const studentListText = document.getElementById('studentListText');
+    const studentCountBadge = document.getElementById('studentCountBadge');
+    const currentNameCount = document.getElementById('currentNameCount');
+    const spinBtn = document.getElementById('spinBtn');
+    const resultModal = document.getElementById('resultModal');
+    const resultCard = document.getElementById('resultCard');
+    const winnerNameEl = document.getElementById('winnerName');
+    const historyList = document.getElementById('historyList');
+    const soundIcon = document.getElementById('soundIcon');
+    const soundText = document.getElementById('soundText');
+    const sideDrawer = document.getElementById('sideDrawer');
+    const autoRemoveToggle = document.getElementById('autoRemoveToggle');
+
+    let tickSynth = null;
+    let winSynth = null;
+
+    function initAudio() {
+      if (tickSynth) return;
+      try {
+        tickSynth = new Tone.MembraneSynth({
+          pitchDecay: 0.008,
+          octaves: 2,
+          oscillator: { type: "sine" },
+          envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.04 }
+        }).toDestination();
+        tickSynth.volume.value = -12;
+
+        winSynth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: "triangle" },
+          envelope: { attack: 0.02, decay: 0.2, sustain: 0.2, release: 0.8 }
+        }).toDestination();
+        winSynth.volume.value = -8;
+      } catch (e) {
+        console.warn("오디오 초기화 오류:", e);
+      }
+    }
+
+    function playTick() {
+      if (!soundEnabled) return;
+      try {
+        if (Tone.context.state !== 'running') {
+          Tone.start();
+        }
+        initAudio();
+        if (tickSynth) {
+          tickSynth.triggerAttackRelease("C4", "32n");
+        }
+      } catch (e) {}
+    }
+
+    function playWinSound() {
+      if (!soundEnabled) return;
+      try {
+        initAudio();
+        if (winSynth) {
+          const now = Tone.now();
+          winSynth.triggerAttackRelease(["C5", "E5", "G5"], "8n", now);
+          winSynth.triggerAttackRelease(["E5", "G5", "C6"], "4n", now + 0.18);
+        }
+      } catch (e) {}
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      if (soundEnabled) {
+        soundIcon.className = "ph-bold ph-speaker-high text-lg text-emerald-400";
+        soundText.textContent = "소리 켬";
+      } else {
+        soundIcon.className = "ph-bold ph-speaker-slash text-lg text-rose-400";
+        soundText.textContent = "음소거";
+      }
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      
+      drawWheel();
+    }
+
+    function drawWheel() {
+      const rect = canvas.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const radius = Math.min(centerX, centerY) - 8;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const numSlices = students.length;
+
+      if (numSlices === 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = '#1e293b';
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 16px Pretendard';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('학생 명단을 입력해주세요', centerX, centerY);
+        ctx.restore();
+        return;
+      }
+
+      const arcSize = (2 * Math.PI) / numSlices;
+
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(currentRotation);
+
+      for (let i = 0; i < numSlices; i++) {
+        const startAngle = i * arcSize;
+        const endAngle = startAngle + arcSize;
+        const color = sliceColors[i % sliceColors.length];
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, radius, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.rotate(startAngle + arcSize / 2);
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+
+        ctx.shadowColor = 'rgba(0,0,0,0.45)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+
+        let fontSize = 16;
+        if (numSlices > 30) fontSize = 11;
+        else if (numSlices > 20) fontSize = 13;
+        else if (numSlices > 12) fontSize = 15;
+        else fontSize = 18;
+
+        if (width < 360) fontSize = Math.max(10, fontSize - 3);
+
+        ctx.font = `bold ${fontSize}px Pretendard`;
+        
+        const textDist = radius - 20;
+        
+        let name = students[i];
+        if (name.length > 7 && numSlices > 16) {
+          name = name.substring(0, 6) + '…';
+        }
+        
+        ctx.fillText(name, textDist, 0);
+        ctx.restore();
+      }
+
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, 2 * Math.PI);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function spin() {
+      if (isSpinning) return;
+      if (students.length === 0) {
+        alert("학생 명단을 먼저 입력해주세요!");
+        return;
+      }
+
+      if (students.length === 1) {
+        showWinner(students[0]);
+        return;
+      }
+
+      if (soundEnabled && Tone.context.state !== 'running') {
+        Tone.start();
+      }
+
+      isSpinning = true;
+      spinBtn.disabled = true;
+      spinBtn.classList.remove('spin-btn-active');
+      spinBtn.classList.add('opacity-60', 'cursor-not-allowed');
+
+      const winningIndex = Math.floor(Math.random() * students.length);
+      const sliceAngle = (2 * Math.PI) / students.length;
+
+      const targetSliceCenter = (winningIndex * sliceAngle) + (sliceAngle / 2);
+      const currentNorm = currentRotation % (2 * Math.PI);
+      
+      const extraRounds = Math.floor(Math.random() * 3) + 6;
+      const pointerAngle = 1.5 * Math.PI;
+      let targetRotation = currentRotation + (extraRounds * 2 * Math.PI) + (pointerAngle - (currentNorm + targetSliceCenter));
+      
+      while (targetRotation <= currentRotation + 4 * Math.PI) {
+        targetRotation += 2 * Math.PI;
+      }
+
+      const startRotation = currentRotation;
+      const totalDistance = targetRotation - startRotation;
+      const duration = 4800 + Math.random() * 800;
+      const startTime = performance.now();
+
+      let lastSliceIndex = -1;
+
+      function animateSpin(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        const ease = 1 - Math.pow(1 - progress, 4);
+
+        currentRotation = startRotation + (totalDistance * ease);
+
+        const numSlices = students.length;
+        const currentSliceUnderPointer = Math.floor(
+          ((pointerAngle - (currentRotation % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI)) / sliceAngle
+        ) % numSlices;
+
+        if (currentSliceUnderPointer !== lastSliceIndex) {
+          playTick();
+          lastSliceIndex = currentSliceUnderPointer;
+        }
+
+        drawWheel();
+
+        if (progress < 1) {
+          requestAnimationFrame(animateSpin);
+        } else {
+          isSpinning = false;
+          spinBtn.disabled = false;
+          spinBtn.classList.add('spin-btn-active');
+          spinBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+
+          const finalWinner = students[winningIndex];
+          showWinner(finalWinner);
+        }
+      }
+
+      requestAnimationFrame(animateSpin);
+    }
+
+    function showWinner(name) {
+      lastWinner = name;
+      winnerNameEl.textContent = name;
+
+      playWinSound();
+
+      confetti({
+        particleCount: 80,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ['#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6']
+      });
+
+      setTimeout(() => {
+        confetti({
+          particleCount: 50,
+          angle: 60,
+          spread: 60,
+          origin: { x: 0.1, y: 0.6 }
+        });
+        confetti({
+          particleCount: 50,
+          angle: 120,
+          spread: 60,
+          origin: { x: 0.9, y: 0.6 }
+        });
+      }, 250);
+
+      resultModal.classList.remove('opacity-0', 'pointer-events-none');
+      resultModal.classList.add('opacity-100');
+      resultCard.classList.remove('scale-90');
+      resultCard.classList.add('scale-100');
+
+      addToHistory(name);
+
+      if (autoRemoveToggle.checked) {
+        removeStudentByName(name);
+      }
+    }
+
+    function closeModal(removeThisWinner = false) {
+      resultModal.classList.add('opacity-0', 'pointer-events-none');
+      resultModal.classList.remove('opacity-100');
+      resultCard.classList.add('scale-90');
+      resultCard.classList.remove('scale-100');
+
+      if (removeThisWinner && lastWinner) {
+        removeStudentByName(lastWinner);
+      }
+    }
+
+    function removeStudentByName(name) {
+      const idx = students.indexOf(name);
+      if (idx !== -1) {
+        students.splice(idx, 1);
+        updateUI();
+        drawWheel();
+      }
+    }
+
+    function addToHistory(name) {
+      history.unshift({
+        name,
+        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      });
+
+      renderHistory();
+    }
+
+    function renderHistory() {
+      if (history.length === 0) {
+        historyList.innerHTML = '<span class="text-xs text-slate-500 italic py-1">아직 뽑힌 학생이 없습니다.</span>';
+        return;
+      }
+
+      historyList.innerHTML = history.slice(0, 10).map((item, i) => `
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700/80 text-xs">
+          <span class="w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-pink-400 animate-ping' : 'bg-slate-500'}"></span>
+          <span class="font-bold text-slate-200">${escapeHtml(item.name)}</span>
+          <span class="text-[10px] text-slate-400 font-mono">${item.time}</span>
+        </div>
+      `).join('');
+    }
+
+    function clearHistory() {
+      history = [];
+      renderHistory();
+    }
+
+    function updateUI() {
+      studentListText.value = students.join('\\n');
+      studentCountBadge.textContent = `총 ${students.length}명`;
+      currentNameCount.textContent = `${students.length}명`;
+    }
+
+    function applyTextList() {
+      const rawText = studentListText.value;
+      const parsed = rawText
+        .split(/[\\n,]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+      students = parsed;
+      updateUI();
+      drawWheel();
+
+      if (window.innerWidth < 1024) {
+        toggleSidePanel();
+      }
+    }
+
+    function shuffleStudents() {
+      for (let i = students.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [students[i], students[j]] = [students[j], students[i]];
+      }
+      updateUI();
+      drawWheel();
+    }
+
+    function applyPreset(type) {
+      if (type === 'class20') {
+        students = [...defaultStudents];
+      } else if (type === 'numbers25') {
+        students = Array.from({ length: 25 }, (_, i) => `${i + 1}번`);
+      }
+      updateUI();
+      drawWheel();
+    }
+
+    function toggleSidePanel() {
+      const isClosed = sideDrawer.classList.contains('translate-x-full');
+      if (isClosed) {
+        sideDrawer.classList.remove('translate-x-full');
+      } else {
+        sideDrawer.classList.add('translate-x-full');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    window.onload = function () {
+      updateUI();
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && document.activeElement !== studentListText && !isSpinning) {
+          e.preventDefault();
+          spin();
+        }
+      });
+    };
+  </script>
+</body>
+</html>
+"""
+
+def main():
+    # 윈도우 창으로 감싸서 앱 실행 (배경색: Tailwind slate-900 색상 적용)
+    window = webview.create_window(
+        '수업용 학생 무작위 뽑기 룰렛',
+        html=HTML_CONTENT,
+        width=1100,
+        height=800,
+        min_size=(800, 600),
+        background_color='#0f172a'
+    )
+    # 앱 시작
+    webview.start()
+
+if __name__ == '__main__':
+    main()
